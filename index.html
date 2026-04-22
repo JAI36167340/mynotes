@@ -1799,9 +1799,6 @@
                 <div class="form-group">
                     <label class="form-label">Tags</label>
                     <div id="tagSelectorContainer" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;"></div>
-                    <div class="tags-input" id="tagsInput">
-                        <input type="text" class="tags-input-field" id="tagInput" placeholder="Add custom tags...">
-                    </div>
                 </div>
 
                 <div class="form-group">
@@ -2035,7 +2032,11 @@
         function getAllTags() {
             const tags = new Set();
             allNotes.forEach(note => {
-                (Array.isArray(note.tags) ? note.tags : []).forEach(tag => tags.add(tag));
+                (Array.isArray(note.tags) ? note.tags : []).forEach(tag => {
+                    if (tag !== 'welcome' && tag !== 'features') {
+                        tags.add(tag);
+                    }
+                });
             });
             return Array.from(tags);
         }
@@ -2241,7 +2242,12 @@
 
                 if (!isTrash) {
                     contentDiv.innerHTML = marked.parse(note.content || '');
-                    contentDiv.addEventListener('click', () => expandNoteContent(note.id));
+                    contentDiv.querySelectorAll('a').forEach(link => link.setAttribute('target', '_blank'));
+                    contentDiv.addEventListener('click', (e) => {
+                        if (!e.target.closest('a')) {
+                            expandNoteContent(note.id);
+                        }
+                    });
                 } else {
                     contentDiv.innerHTML = highlightText(note.content || '', searchTerm);
                 }
@@ -2308,36 +2314,24 @@
         }
 
         function renderTagBadges() {
-            const placeholder = document.getElementById('tagsInput');
+            const container = document.getElementById('tagSelectorContainer');
             const badges = currentTags.map(tag => '<div class="tag-badge"><span>#' + tag + '</span><span class="tag-badge-remove" onclick="removeTag(' + "'" + tag + "'" + ')">✕</span></div>').join('');
-
-            placeholder.innerHTML = badges + `<input type="text" class="tags-input-field" id="tagInput" placeholder="Add tags...">`;
-            setupTagInput();
+            container.innerHTML = badges;
         }
 
+        // These are no longer needed as tags are now only from Admin
         function setupTagInput() {
-            const input = document.getElementById('tagInput');
-            if (!input) return;
-
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && input.value.trim()) {
-                    e.preventDefault();
-                    addTag(input.value.trim());
-                    input.value = '';
-                }
-            });
+            // Deprecated
         }
 
         function addTag(tag) {
-            if (!currentTags.includes(tag)) {
-                currentTags.push(tag);
-                renderTagBadges();
-            }
+            // Deprecated
         }
 
         function removeTag(tag) {
             currentTags = currentTags.filter(t => t !== tag);
             renderTagBadges();
+            renderTagSelector();
         }
 
         function updateWordCount() {
@@ -2769,7 +2763,9 @@
             const docRef = window.firestore.doc(window.db, 'settings', 'tags');
             const docSnap = await window.firestore.getDoc(docRef);
             if (docSnap.exists()) {
-                allPredefinedTags = docSnap.data().tags || [];
+                let tags = docSnap.data().tags || [];
+                tags = tags.filter(t => t !== 'welcome' && t !== 'features');
+                allPredefinedTags = tags;
             } else {
                 allPredefinedTags = [];
             }
@@ -2808,7 +2804,9 @@
 
         function renderTagSelector() {
             var container = document.getElementById('tagSelectorContainer');
-            if (!container || !allPredefinedTags.length) return;
+            if (!container) return;
+
+            // Keep the visual badges of currently selected tags
             container.innerHTML = allPredefinedTags.map(function(tag) {
                 var isSelected = currentTags.includes(tag) ? 'selected' : '';
                 return '<button class="tag-selector-btn ' + isSelected + '" onclick="toggleTagSelection(\'' + tag + '\')">#' + tag + '</button>';
