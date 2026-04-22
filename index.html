@@ -1917,14 +1917,10 @@
             }, duration);
         }
 
-        const STORAGE_KEY = 'modern-notes';
         let currentEditingId = null;
         let allCategories = [];
-        const CATEGORIES_KEY = 'notes-categories';
-        const CURRENT_CATEGORY_FILTER = 'currentCategoryFilter';
         let currentCategoryFilter = null;
         let allPredefinedTags = [];
-        const PREDEFINED_TAGS_KEY = 'notes-predefined-tags';
 
         async function loadCategories() {
             const querySnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'categories'));
@@ -2024,7 +2020,7 @@
             return notes.length > 0 ? notes : getSampleNotes();
         }
 
-        async function saveNote(note) {
+        async function persistNote(note) {
             const noteRef = window.firestore.doc(window.db, 'notes', note.id);
             await window.firestore.setDoc(noteRef, note, { merge: true });
         }
@@ -2039,7 +2035,7 @@
         function getAllTags() {
             const tags = new Set();
             allNotes.forEach(note => {
-                note.tags.forEach(tag => tags.add(tag));
+                (Array.isArray(note.tags) ? note.tags : []).forEach(tag => tags.add(tag));
             });
             return Array.from(tags);
         }
@@ -2050,7 +2046,7 @@
             if (currentCategoryFilter) {
                 const category = allCategories.find(c => c.id === currentCategoryFilter);
                 if (category && category.tags.length > 0) {
-                    filtered = filtered.filter(n => n.tags.some(t => category.tags.includes(t)) && !n.deleted);
+                    filtered = filtered.filter(n => (Array.isArray(n.tags) ? n.tags : []).some(t => category.tags.includes(t)) && !n.deleted);
                 } else {
                     filtered = filtered.filter(n => !n.deleted);
                 }
@@ -2071,7 +2067,7 @@
                 if (searchTerm.startsWith('#')) {
                     // Filter by tag
                     const tag = searchTerm.substring(1);
-                    filtered = filtered.filter(n => n.tags.some(t => t.toLowerCase() === tag));
+                    filtered = filtered.filter(n => (Array.isArray(n.tags) ? n.tags : []).some(t => t.toLowerCase() === tag));
                 } else {
                     // Filter by title and content
                     filtered = filtered.filter(n =>
@@ -2257,7 +2253,7 @@
                 footer.className = 'note-footer';
                 const tagsWrap = document.createElement('div');
                 tagsWrap.className = 'note-tags';
-                (note.tags || []).forEach(tag => {
+                (Array.isArray(note.tags) ? note.tags : []).forEach(tag => {
                     const t = document.createElement('span');
                     t.className = 'note-tag';
                     t.textContent = '#' + tag;
@@ -2290,7 +2286,7 @@
                 document.getElementById('noteTitle').value = note.title;
                 document.getElementById('noteContent').value = note.content;
                 document.querySelector(`input[name="color"][value="${note.color}"]`).checked = true;
-                currentTags = [...note.tags];
+                currentTags = Array.isArray(note.tags) ? [...note.tags] : [];
                 currentEditingId = noteId;
             } else {
                 document.getElementById('modalTitle').textContent = 'New Note';
@@ -2376,7 +2372,7 @@
                     note.color = color;
                     note.modifiedAt = timestamp;
                     note.wordCount = countWords(content);
-                    saveNote(note);
+                    persistNote(note);
                 } else {
                     const newNote = {
                         id: generateId(),
@@ -2393,7 +2389,7 @@
                         wordCount: countWords(content)
                     };
                     allNotes.unshift(newNote);
-                    saveNote(newNote);
+                    persistNote(newNote);
                 }
 
                 if (!silent) {
@@ -2419,7 +2415,7 @@
             const note = allNotes.find(n => n.id === id);
             if (note && !note.deleted) {
                 note.deleted = true;
-                saveNote(note);
+                persistNote(note);
                 renderNotes();
                 renderTags();
             }
@@ -2429,7 +2425,7 @@
             const note = allNotes.find(n => n.id === id);
             if (note && note.deleted) {
                 note.deleted = false;
-                saveNote(note);
+                persistNote(note);
                 renderNotes();
                 renderTags();
             }
@@ -2747,12 +2743,14 @@
                     const file = e.target.files[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = (event) => {
+                    reader.onload = async (event) => {
                         try {
                             const imported = JSON.parse(event.target.result);
                             if (Array.isArray(imported) && confirm('Replace existing notes?')) {
                                 allNotes = imported;
-                                saveNotes(allNotes);
+                                for (const note of imported) {
+                                    await saveNote(note);
+                                }
                                 renderNotes();
                                 renderTags();
                                 alert('Notes imported!');
@@ -2784,11 +2782,14 @@
         }
 
         function addPredefinedTag(tagName) {
-            if (tagName && !allPredefinedTags.includes(tagName)) {
-                allPredefinedTags.push(tagName);
-                savePredefinedTags(allPredefinedTags);
-                renderPredefinedTagsUI();
-                renderTagSelector();
+            if (tagName) {
+                const cleanedTag = tagName.startsWith('#') ? tagName.substring(1) : tagName;
+                if (!allPredefinedTags.includes(cleanedTag)) {
+                    allPredefinedTags.push(cleanedTag);
+                    savePredefinedTags(allPredefinedTags);
+                    renderPredefinedTagsUI();
+                    renderTagSelector();
+                }
             }
         }
 
@@ -2866,7 +2867,7 @@
             const overlay = document.getElementById('expandedNoteOverlay');
             const popup = document.getElementById('expandedNotePopup');
 
-            const tagsHtml = note.tags.map(tag => '<span class="tag">#' + tag + '</span>').join('');
+            const tagsHtml = (Array.isArray(note.tags) ? note.tags : []).map(tag => '<span class="tag">#' + tag + '</span>').join('');
             
             popup.innerHTML = `
                 <div class="expanded-note-header">
@@ -3069,7 +3070,7 @@
             if (!note) return;
 
             const printWindow = window.open('', '_blank');
-            const tagsHtml = note.tags.map(tag => '<span style="display: inline-block; background: #667eea; color: white; padding: 4px 10px; margin-right: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9rem;">#' + tag + '</span>').join('');
+            const tagsHtml = (Array.isArray(note.tags) ? note.tags : []).map(tag => '<span style="display: inline-block; background: #667eea; color: white; padding: 4px 10px; margin-right: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9rem;">#' + tag + '</span>').join('');
             
             let html = '<!DOCTYPE html>\n';
             html += '<html>\n<head>\n';
