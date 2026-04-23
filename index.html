@@ -64,7 +64,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: white;
             min-height: 100vh;
             color: var(--dark);
             transition: background 0.3s;
@@ -87,7 +87,7 @@
 
         /* SIDEBAR */
         .sidebar {
-            width: 280px;
+            width: 250px;
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: var(--white);
             padding: 20px;
@@ -99,7 +99,7 @@
         }
 
         .sidebar.collapsed {
-            margin-left: -280px;
+            margin-left: -250px;
         }
 
         .sidebar-toggle-btn {
@@ -428,7 +428,7 @@
 
         .notes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 20px;
             animation: fadeIn 0.3s ease-in;
         }
@@ -448,7 +448,7 @@
         .note-card {
             background: var(--white);
             border-radius: 12px;
-            padding: 20px;
+            padding: 10px 20px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             cursor: pointer;
             transition: all 0.3s;
@@ -471,15 +471,24 @@
         .note-card.list-view {
             padding: 15px 20px;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
+            text-align: left;
+        }
+        .note-card.list-view .note-header {
+            flex: 1;
+            text-align: left;
+            align-items: flex-start;
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .note-header {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 4px;
         }
 
         .note-header-top {
@@ -494,6 +503,7 @@
             font-weight: 700;
             color: var(--dark);
             word-break: break-word;
+            text-align: left;
         }
 
         body.dark-mode .note-title {
@@ -538,13 +548,16 @@
             color: #666;
             font-size: 0.95rem;
             line-height: 1.5;
-            margin-bottom: 12px;
+            margin-bottom: 4px;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
             -webkit-line-clamp: 3;
+            line-clamp: 3;
             -webkit-box-orient: vertical;
             user-select: text;
+            text-align: left;
+            word-break: break-all;
         }
 
         body.dark-mode .note-content {
@@ -891,6 +904,14 @@
         .form-textarea {
             resize: vertical;
             min-height: 150px;
+            white-space: pre-wrap;
+            outline: none;
+        }
+        .form-textarea img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 10px 0;
         }
 
         .modal-btn {
@@ -1969,7 +1990,7 @@
 
                 <div class="form-group">
                     <label class="form-label">Content</label>
-                    <textarea class="form-textarea" id="noteContent" placeholder="Write your note..." style="min-height: 400px;"></textarea>
+                    <div class="form-textarea" id="noteContent" contenteditable="true" placeholder="Write your note..." style="min-height: 400px; overflow-y: auto;"></div>
                 </div>
 
                 <div class="form-group">
@@ -2334,7 +2355,11 @@
                 left.style.cursor = isTrash ? 'default' : 'pointer';
                 const titleDiv = document.createElement('div');
                 titleDiv.className = 'note-title';
-                titleDiv.innerHTML = highlightText(note.title || '', searchTerm);
+                let displayTitle = note.title || '';
+                if (displayTitle.length > 50) {
+                    displayTitle = displayTitle.substring(0, 47) + '...';
+                }
+                titleDiv.innerHTML = highlightText(displayTitle, searchTerm);
                 left.appendChild(titleDiv);
                 if (!isTrash) left.addEventListener('click', () => editNote(note.id));
 
@@ -2373,7 +2398,7 @@
                     viewBtn.title = 'View Full Content';
                     viewBtn.setAttribute('aria-label', 'View full content');
                     viewBtn.textContent = '📖';
-                    viewBtn.addEventListener('click', (e) => { e.stopPropagation(); expandNoteContent(note.id); });
+                    viewBtn.addEventListener('click', (e) => { e.stopPropagation(); openNoteInNewTab(note.id); });
                     actions.appendChild(viewBtn);
 
                     const favBtn = document.createElement('button');
@@ -2421,7 +2446,7 @@
                     contentDiv.querySelectorAll('a').forEach(link => link.setAttribute('target', '_blank'));
                     contentDiv.addEventListener('click', (e) => {
                         if (!e.target.closest('a')) {
-                            expandNoteContent(note.id);
+                            openNoteInNewTab(note.id);
                         }
                     });
                 } else {
@@ -2466,14 +2491,14 @@
                 const note = allNotes.find(n => n.id === noteId);
                 document.getElementById('modalTitle').textContent = 'Edit Note';
                 document.getElementById('noteTitle').value = note.title;
-                document.getElementById('noteContent').value = note.content;
+                document.getElementById('noteContent').innerHTML = note.content;
                 document.querySelector(`input[name="color"][value="${note.color}"]`).checked = true;
                 currentTags = Array.isArray(note.tags) ? [...note.tags] : [];
                 currentEditingId = noteId;
             } else {
                 document.getElementById('modalTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').value = '';
-                document.getElementById('noteContent').value = '';
+                document.getElementById('noteContent').innerHTML = '';
                 document.getElementById('color-blue').checked = true;
                 currentTags = [];
                 currentEditingId = null;
@@ -2511,7 +2536,7 @@
         }
 
         function updateWordCount() {
-            const content = document.getElementById('noteContent').value;
+            const content = document.getElementById('noteContent').innerText;
             const words = countWords(content);
             const chars = content.length;
             document.getElementById('wordCount').innerHTML = `Words: ${words} | Characters: ${chars}`;
@@ -2519,7 +2544,7 @@
 
         function saveNote(silent = false) {
             const title = document.getElementById('noteTitle').value.trim();
-            const content = document.getElementById('noteContent').value.trim();
+            const content = document.getElementById('noteContent').innerHTML.trim();
             try {
                 const color = (document.querySelector('input[name="color"]:checked') || {}).value || '#667eea';
 
@@ -2643,21 +2668,21 @@
         function toggleFavorite(id) {
             const note = allNotes.find(n => n.id === id);
             note.favorite = !note.favorite;
-            saveNote(note);
+            persistNote(note);
             renderNotes();
         }
 
         function togglePin(id) {
             const note = allNotes.find(n => n.id === id);
             note.pinned = !note.pinned;
-            saveNote(note);
+            persistNote(note);
             renderNotes();
         }
 
         function toggleArchive(id) {
             const note = allNotes.find(n => n.id === id);
             note.archived = !note.archived;
-            saveNote(note);
+            persistNote(note);
             renderNotes();
             renderTags();
         }
@@ -2809,6 +2834,22 @@
                     updateWordCount();
                     debouncedAutoSave();
                 });
+
+                noteContent.addEventListener('paste', (e) => {
+                    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                    for (const item of items) {
+                        if (item.type.indexOf('image') !== -1) {
+                            const blob = item.getAsFile();
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const img = `<img src="${event.target.result}" alt="Pasted Image">`;
+                                document.execCommand('insertHTML', false, img);
+                            };
+                            reader.readAsDataURL(blob);
+                            e.preventDefault();
+                        }
+                    }
+                });
             }
 
             const noteTitle = document.getElementById('noteTitle');
@@ -2886,6 +2927,24 @@
             if (editorModal) {
                 editorModal.addEventListener('click', (e) => {
                     if (e.target === editorModal) closeEditor();
+                });
+
+                const modalContent = document.querySelector('.modal-content');
+                if (modalContent) {
+                    modalContent.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                    });
+                    modalContent.addEventListener('mouseup', (e) => {
+                        e.stopPropagation();
+                    });
+                    modalContent.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                }
+                editorModal.addEventListener('mousedown', (e) => {
+                    if (e.target === editorModal) {
+                        // Do nothing, let it handle the click
+                    }
                 });
             }
 
@@ -3035,54 +3094,93 @@
         }
 
         function expandNoteContent(noteId) {
-            const note = allNotes.find(n => n.id === noteId);
-            if (!note) return;
-
-            const overlay = document.getElementById('expandedNoteOverlay');
-            const popup = document.getElementById('expandedNotePopup');
-
-            const tagsHtml = (Array.isArray(note.tags) ? note.tags : []).map(tag => '<span class="tag">#' + tag + '</span>').join('');
-            
-            popup.innerHTML = `
-                <div class="expanded-note-header">
-                    <div>
-                        <h2>${escapeHtml(note.title)}</h2>
-                        <div class="expanded-note-meta">
-                            <span class="note-date">📅 ${formatDate(note.modifiedAt)}</span>
-                            <span class="note-word-count">📝 ${countWords(note.content)} words</span>
-                        </div>
-                    </div>
-                    <div class="expanded-note-actions">
-                        <button class="print-expand-btn" title="Print Note">🖨️</button>
-                        <button class="copy-btn" title="Copy to Clipboard">📋</button>
-                        <button class="close-expand-btn" title="Close">✕</button>
-                    </div>
-                </div>
-                <div class="expanded-note-content">
-                    ${escapeHtml(note.content)}
-                </div>
-                <div class="expanded-note-footer">
-                    ${tagsHtml}
-                </div>
-            `;
-
-            // Add event listeners to avoid quote escaping issues
-            const editBtn = popup.querySelector('.edit-expand-btn');
-            const printBtn = popup.querySelector('.print-expand-btn');
-            const copyBtn = popup.querySelector('.copy-btn');
-            const closeBtn = popup.querySelector('.close-expand-btn');
-
-            if (editBtn) editBtn.addEventListener('click', () => editNoteFromExpanded(noteId));
-            if (printBtn) printBtn.addEventListener('click', () => printNote(noteId));
-            if (copyBtn) copyBtn.addEventListener('click', () => copyNoteToClipboard(noteId));
-            if (closeBtn) closeBtn.addEventListener('click', closeExpandedNote);
-
-            overlay.classList.add('active');
+            openNoteInNewTab(noteId);
         }
 
         function closeExpandedNote() {
             const overlay = document.getElementById('expandedNoteOverlay');
             overlay.classList.remove('active');
+        }
+
+        function openNoteInNewTab(noteId) {
+            const note = allNotes.find(n => n.id === noteId);
+            if (!note) return;
+
+            const printWindow = window.open('', '_blank');
+            printWindow.document.title = note.title;
+
+            const tagsHtml = (Array.isArray(note.tags) ? note.tags : []).map(tag => '<span style="display: inline-block; background: #667eea; color: white; padding: 4px 10px; margin-right: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9rem;">#' + tag + '</span>').join('');
+
+            let htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(note.title)}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif; color: #2c3e50; background: white; padding: 40px; line-height: 1.6; }
+        .full-page-container { max-width: 800px; margin: 0 auto; }
+        .header-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e0e0e0; }
+        .toolbar-actions { display: flex; gap: 10px; }
+        .toolbar-btn { padding: 8px 15px; border: 1px solid #ddd; background: #f9f9f9; cursor: pointer; border-radius: 6px; font-size: 0.9rem; transition: all 0.2s; }
+        .toolbar-btn:hover { background: #eee; }
+        h1 { font-size: 2em; margin-bottom: 15px; color: #2c3e50; }
+        .meta { display: flex; gap: 20px; margin-bottom: 20px; font-size: 0.95em; color: #666; }
+        .meta span { display: flex; align-items: center; }
+        .content { margin: 30px 0; font-size: 1.1em; line-height: 1.8; white-space: pre-wrap; word-wrap: break-word; }
+        .tags { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 0.85em; color: #999; }
+        img { max-width: 100%; height: auto; display: block; margin: 10px 0; }
+        @media print { .toolbar-actions { display: none; } @page { margin: 1cm; } }
+    </style>
+</head>
+<body>
+    <div class="full-page-container">
+        <div class="header-toolbar">
+            <h1>${escapeHtml(note.title)}</h1>
+            <div class="toolbar-actions">
+                <button class="toolbar-btn" onclick="window.print()">🖨️ Print</button>
+                <button class="toolbar-btn" id="copyBtn">📋 Copy</button>
+            </div>
+        </div>
+        <div class="meta">
+            <span>📅 ${formatDate(note.modifiedAt)}</span>
+            <span>📝 ${countWords(note.content)} words</span>
+        </div>
+        <div class="content">${note.content}</div>
+        ${tagsHtml ? `<div class="tags">${tagsHtml}</div>` : ''}
+        <div class="footer">
+            <p>Opened on ${new Date().toLocaleString()}</p>
+        </div>
+    </div>
+    <script>
+        document.getElementById('copyBtn').onclick = async () => {
+            const title = JSON.stringify(escapeHtml(note.title)) + '\\n\\n';
+            const content = JSON.stringify(note.content);
+            const textToCopy = title + content;
+
+            try {
+                if (content.includes('<img')) {
+                    const blob = new Blob([\`<h1>\${title}</h1><p>\${content}</p>\`], { type: 'text/html' });
+                    const textBlob = new Blob([textToCopy], { type: 'text/plain' });
+                    await navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob })]);
+                    alert('Note copied to clipboard (with images)!');
+                } else {
+                    await navigator.clipboard.writeText(textToCopy);
+                    alert('Note copied to clipboard!');
+                }
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy content.');
+            }
+        };
+    <\/script>
+</body>
+</html>`;
+
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
         }
 
         function editNoteFromExpanded(noteId) {
@@ -3244,6 +3342,7 @@
             if (!note) return;
 
             const printWindow = window.open('', '_blank');
+            printWindow.document.title = note.title;
             const tagsHtml = (Array.isArray(note.tags) ? note.tags : []).map(tag => '<span style="display: inline-block; background: #667eea; color: white; padding: 4px 10px; margin-right: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9rem;">#' + tag + '</span>').join('');
 
             let htmlContent = '<!DOCTYPE html>\n';
@@ -3269,7 +3368,7 @@
             htmlContent += '            <span>📅 ' + formatDate(note.modifiedAt) + '</span>\n';
             htmlContent += '            <span>📝 ' + countWords(note.content) + ' words</span>\n';
             htmlContent += '        </div>\n';
-            htmlContent += '        <div class="content">' + escapeHtml(note.content) + '</div>\n';
+            htmlContent += '        <div class="content">' + note.content + '</div>\n';
             if (tagsHtml) {
                 htmlContent += '        <div class="tags">' + tagsHtml + '</div>\n';
             }
@@ -3292,14 +3391,33 @@
             if (!note) return;
 
             const textToCopy = `${note.title}\n\n${note.content}`;
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                alert('Note copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy:', err);
-            });
+
+            // If content contains HTML (like images), we can't just use writeText for a rich copy.
+            // However, since we are using Base64 images in HTML, the best 'copy' for a user
+            // wanting the images is to copy the HTML.
+            if (note.content.includes('<img')) {
+                const blob = new Blob([`<h1>${note.title}</h1><p>${note.content}</p>`], { type: 'text/html' });
+                const textBlob = new Blob([`${note.title}\n\n${note.content}`], { type: 'text/plain' });
+                const data = [new ClipboardItem({ 'text/html': blob, 'text/plain': textBlob })];
+
+                navigator.clipboard.write(data).then(() => {
+                    alert('Note copied to clipboard (with images)!');
+                }).catch(err => {
+                    console.error('Failed to copy rich content:', err);
+                    // Fallback to plain text
+                    navigator.clipboard.writeText(textToCopy).then(() => alert('Note copied to clipboard (text only)!'));
+                });
+            } else {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    alert('Note copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
+            }
         }
 
         function checkAuthState(user) {
+            document.body.style.visibility = 'visible';
             const overlay = document.getElementById('authOverlay');
             const appContent = document.querySelector('.main');
 
