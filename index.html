@@ -2003,19 +2003,28 @@
                     <div style="display: flex; gap: 10px;">
                         <input type="radio" name="color" value="#667eea" id="color-blue" checked style="display: none;">
                         <label for="color-blue" style="width: 30px; height: 30px; background: #667eea; border-radius: 6px; cursor: pointer;"></label>
-                        
+
                         <input type="radio" name="color" value="#2ed573" id="color-green" style="display: none;">
                         <label for="color-green" style="width: 30px; height: 30px; background: #2ed573; border-radius: 6px; cursor: pointer;"></label>
-                        
+
                         <input type="radio" name="color" value="#ff4757" id="color-red" style="display: none;">
                         <label for="color-red" style="width: 30px; height: 30px; background: #ff4757; border-radius: 6px; cursor: pointer;"></label>
-                        
+
                         <input type="radio" name="color" value="#ffa502" id="color-orange" style="display: none;">
                         <label for="color-orange" style="width: 30px; height: 30px; background: #ffa502; border-radius: 6px; cursor: pointer;"></label>
-                        
+
                         <input type="radio" name="color" value="#9c27b0" id="color-purple" style="display: none;">
                         <label for="color-purple" style="width: 30px; height: 30px; background: #9c27b0; border-radius: 6px; cursor: pointer;"></label>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Attachments</label>
+                    <div id="attachmentList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;"></div>
+                    <input type="file" id="attachmentInput" class="form-input" accept=".pdf,.doc,.docx" style="display: none;">
+                    <button type="button" class="modal-btn modal-btn-secondary" id="addAttachmentBtn" style="width: 100%; text-align: left; padding-left: 12px;">
+                        📎 Add PDF or Word Document
+                    </button>
                 </div>
 
                 <div style="padding: 12px; background: #f0f0f0; border-radius: 8px; font-size: 0.85rem; color: #666;">
@@ -2115,6 +2124,7 @@
         let allCategories = [];
         let currentCategoryFilter = null;
         let allPredefinedTags = [];
+        let currentTags = [];
 
         async function loadCategories() {
             const querySnapshot = await window.firestore.getDocs(window.firestore.collection(window.db, 'categories'));
@@ -2188,7 +2198,7 @@
         let allNotes = [];
         let currentFilter = 'all';
         let currentView = 'grid';
-        let currentTags = [];
+        let currentAttachments = [];
 
         function debounce(func, wait) {
             let timeout;
@@ -2471,6 +2481,18 @@
                 footer.appendChild(tagsWrap);
                 footer.appendChild(dateSpan);
 
+                if (note.attachments && note.attachments.length > 0) {
+                    const attachIcon = document.createElement('span');
+                    attachIcon.className = 'attachment-indicator';
+                    attachIcon.style.marginLeft = 'auto';
+                    attachIcon.style.display = 'flex';
+                    attachIcon.style.alignItems = 'center';
+                    attachIcon.style.gap = '4px';
+                    attachIcon.innerHTML = `📎 <span style="font-size:0.8rem; opacity:0.8;">${note.attachments.length}</span>`;
+                    attachIcon.title = 'Has attachments';
+                    footer.appendChild(attachIcon);
+                }
+
                 card.appendChild(footer);
                 container.appendChild(card);
             });
@@ -2494,6 +2516,7 @@
                 document.getElementById('noteContent').innerHTML = note.content;
                 document.querySelector(`input[name="color"][value="${note.color}"]`).checked = true;
                 currentTags = Array.isArray(note.tags) ? [...note.tags] : [];
+                currentAttachments = Array.isArray(note.attachments) ? [...note.attachments] : [];
                 currentEditingId = noteId;
             } else {
                 document.getElementById('modalTitle').textContent = 'New Note';
@@ -2501,11 +2524,13 @@
                 document.getElementById('noteContent').innerHTML = '';
                 document.getElementById('color-blue').checked = true;
                 currentTags = [];
+                currentAttachments = [];
                 currentEditingId = null;
             }
 
             renderTagBadges();
             renderTagSelector();
+            renderAttachmentList();
             updateWordCount();
         }
 
@@ -2518,6 +2543,20 @@
             const container = document.getElementById('tagSelectorContainer');
             const badges = currentTags.map(tag => '<div class="tag-badge"><span>#' + tag + '</span><span class="tag-badge-remove" onclick="removeTag(' + "'" + tag + "'" + ')">✕</span></div>').join('');
             container.innerHTML = badges;
+        }
+
+        function renderAttachmentList() {
+            const container = document.getElementById('attachmentList');
+            if (!container) return;
+
+            container.innerHTML = currentAttachments.map((file, index) => `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: #eee; border-radius: 6px; font-size: 0.85rem; color: #333;">
+                    <span style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        📎 ${escapeHtml(file.name)}
+                    </span>
+                    <button onclick="removeAttachment(${index})" style="background: none; border: none; cursor: pointer; color: #ff4757; font-weight: bold; padding: 0 5px;">✕</button>
+                </div>
+            `).join('');
         }
 
         // These are no longer needed as tags are now only from Admin
@@ -2533,6 +2572,11 @@
             currentTags = currentTags.filter(t => t !== tag);
             renderTagBadges();
             renderTagSelector();
+        }
+
+        function removeAttachment(index) {
+            currentAttachments.splice(index, 1);
+            renderAttachmentList();
         }
 
         function updateWordCount() {
@@ -2553,7 +2597,6 @@
                         showToast('Please enter a title', 'error');
                         return;
                     }
-                    // For silent saves (auto-save), we allow it but might assign a default title internally
                 }
 
                 const timestamp = Date.now();
@@ -2567,6 +2610,7 @@
                     note.color = color;
                     note.modifiedAt = timestamp;
                     note.wordCount = countWords(content);
+                    note.attachments = currentAttachments;
                     persistNote(note);
                 } else {
                     const newNote = {
@@ -2581,7 +2625,8 @@
                         favorite: false,
                         createdAt: timestamp,
                         modifiedAt: timestamp,
-                        wordCount: countWords(content)
+                        wordCount: countWords(content),
+                        attachments: currentAttachments
                     };
                     allNotes.unshift(newNote);
                     persistNote(newNote);
@@ -2592,9 +2637,6 @@
                     renderTags();
                     closeEditor();
                     showToast('Note saved successfully!', 'success');
-                } else {
-                    // Optional: show a subtle "Saved" indicator for auto-save
-                    // showToast('Auto-saved', 'info', 1000);
                 }
             } catch (err) {
                 console.error('Error saving note:', err);
@@ -2812,6 +2854,51 @@
             
             const saveBtn = document.getElementById('saveBtn');
             if (saveBtn) saveBtn.addEventListener('click', () => saveNote(false));
+
+            const addAttachmentBtn = document.getElementById('addAttachmentBtn');
+            if (addAttachmentBtn) {
+                addAttachmentBtn.addEventListener('click', () => {
+                    document.getElementById('attachmentInput').click();
+                });
+            }
+
+            const attachmentInput = document.getElementById('attachmentInput');
+            if (attachmentInput) {
+                attachmentInput.addEventListener('change', async (e) => {
+                    const files = Array.from(e.target.files);
+                    if (files.length === 0) return;
+
+                    const noteId = currentEditingId || generateId();
+
+                    for (const file of files) {
+                        try {
+                            showToast(`Uploading ${file.name}...`, 'info');
+
+                            // In this environment, window.firestore.put might not be standard.
+                            // We will use a Base64 conversion to ensure it works regardless of storage config.
+                            const reader = new FileReader();
+                            const uploadPromise = new Promise((resolve, reject) => {
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(file);
+                            });
+
+                            const base64Data = await uploadPromise;
+                            const url = base64Data; // Store Base64 as the URL for simplicity/guaranteed work
+
+                            currentAttachments.push({
+                                name: file.name,
+                                url: url
+                            });
+                        } catch (error) {
+                            console.error('Upload error:', error);
+                            showToast(`Failed to upload ${file.name}`, 'error');
+                        }
+                    }
+                    renderAttachmentList();
+                    e.target.value = '';
+                });
+            }
             
             const cancelBtn = document.getElementById('cancelBtn');
             if (cancelBtn) cancelBtn.addEventListener('click', closeEditor);
@@ -3111,6 +3198,15 @@
 
             const tagsHtml = (Array.isArray(note.tags) ? note.tags : []).map(tag => '<span style="display: inline-block; background: #667eea; color: white; padding: 4px 10px; margin-right: 8px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9rem;">#' + tag + '</span>').join('');
 
+            const attachHtml = (Array.isArray(note.attachments) && note.attachments.length > 0)
+                ? `<div class="attachments">
+                    <h3 style="margin-top:20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Attachments</h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                        ${note.attachments.map(a => `<a href="${a.url}" download="${escapeHtml(a.name)}" target="_blank" style="color: #667eea; text-decoration: none; display: flex; align-items: center; gap: 8px;">📎 ${escapeHtml(a.name)}</a>`).join('')}
+                    </div>
+                   </div>`
+                : '';
+
             let htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3129,7 +3225,7 @@
         .meta { display: flex; gap: 20px; margin-bottom: 20px; font-size: 0.95em; color: #666; }
         .meta span { display: flex; align-items: center; }
         .content { margin: 30px 0; font-size: 1.1em; line-height: 1.8; white-space: pre-wrap; word-wrap: break-word; }
-        .tags { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; }
+        .tags { margin-top: 30px; padding-top: 20px; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; }
         .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 0.85em; color: #999; }
         img { max-width: 100%; height: auto; display: block; margin: 10px 0; }
         @media print { .toolbar-actions { display: none; } @page { margin: 1cm; } }
@@ -3149,12 +3245,39 @@
             <span>📝 ${countWords(note.content)} words</span>
         </div>
         <div class="content">${note.content}</div>
+        ${attachHtml}
         ${tagsHtml ? `<div class="tags">${tagsHtml}</div>` : ''}
         <div class="footer">
             <p>Opened on ${new Date().toLocaleString()}</p>
         </div>
     </div>
     <script>
+        document.querySelectorAll('.attachments a').forEach(a => {
+            a.addEventListener('click', function(e) {
+                if (this.href.startsWith('data:')) {
+                    e.preventDefault();
+                    const url = this.href;
+                    const name = this.getAttribute('download') || 'attachment';
+
+                    const arr = url.split(',');
+                    const mime = arr[0].split(':')[1].split(';')[0];
+                    const bstr = atob(arr[1]);
+                    let bytes = new Uint8Array(bstr.length);
+                    for (let i = 0; i < bstr.length; i++) {
+                        bytes[i] = bstr.charCodeAt(i);
+                    }
+                    const blob = new Blob([bytes], {type: mime});
+                    const blobUrl = URL.createObjectURL(blob);
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = blobUrl;
+                    downloadLink.download = name;
+                    downloadLink.click();
+                    URL.revokeObjectURL(blobUrl);
+                }
+            });
+        });
+
         document.getElementById('copyBtn').onclick = async () => {
             const title = JSON.stringify(escapeHtml(note.title)) + '\\n\\n';
             const content = JSON.stringify(note.content);
