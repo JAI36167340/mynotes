@@ -234,7 +234,7 @@
         .sidebar-menu {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 0px;
             margin-bottom: 30px;
         }
 
@@ -244,7 +244,7 @@
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             transition: all 0.3s;
             font-weight: 500;
             user-select: none;
@@ -255,6 +255,10 @@
         }
         .menu-item.active {
             background: rgba(255, 255, 255, 0.25);
+        }
+        .menu-item-vault {
+            margin-top: 0;
+            border: 1px dashed rgba(255, 255, 255, 0.4);
         }
         .empty-trash-btn {
             margin-left: auto;
@@ -407,6 +411,98 @@
             background: var(--primary);
             color: var(--white);
             border-color: var(--primary);
+        }
+
+        .user-menu-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+            border: 2px solid #d0d0d0;
+        }
+
+        body.dark-mode .user-icon {
+            background: #404040;
+            border-color: #505050;
+            color: white;
+        }
+
+        .user-icon:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 42px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            min-width: 180px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            z-index: 1000;
+            padding: 8px 0;
+            animation: fadeIn 0.2s ease-out;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        body.dark-mode .user-dropdown {
+            background: rgba(42, 42, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid #404040;
+        }
+
+        .user-dropdown.active {
+            display: block;
+        }
+
+        .user-dropdown-item {
+            width: 100%;
+            padding: 10px 16px;
+            border: none;
+            background: none;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--dark);
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        body.dark-mode .user-dropdown-item {
+            color: var(--white);
+        }
+
+        .user-dropdown-item:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .user-dropdown-item.signout {
+            border-top: 1px solid #e0e0e0;
+            color: var(--danger);
+            margin-top: 5px;
+        }
+
+        body.dark-mode .user-dropdown-item.signout {
+            border-top: 1px solid #404040;
         }
 
         /* CONTENT AREA */
@@ -1883,21 +1979,15 @@
                     <span class="menu-item-icon">⚙️</span>
                     <span>Admin</span>
                 </div>
-                <div class="menu-item" id="signOutBtn" style="margin-top: 20px; color: #ffcccc; cursor: pointer;">
-                    <span class="menu-item-icon">🚪</span>
-                    <span>Sign Out</span>
+                <div class="menu-item menu-item-vault" id="vaultMenuItem" onclick="openVault()">
+                    <span class="menu-item-icon">🔐</span>
+                    <span>Personal Vault</span>
                 </div>
             </nav>
 
             <div class="sidebar-tags">
                 <div class="tags-header">Tags</div>
                 <div id="tagsContainer"></div>
-            </div>
-
-            <div class="backup-section">
-                <button class="backup-btn" id="exportBtn">📥 Export</button>
-                <button class="backup-btn" id="importBtn">📤 Import</button>
-                <input type="file" id="importFile" accept=".json" style="display: none;">
             </div>
         </aside>
 
@@ -1923,6 +2013,16 @@
                     <div class="view-toggle">
                         <button class="view-btn active" id="gridView" title="Grid View">⊞</button>
                         <button class="view-btn" id="listView" title="List View">≡</button>
+                    </div>
+
+                    <div class="user-menu-container">
+                        <div class="user-icon" id="userMenuBtn" title="User Menu">👤</div>
+                        <div class="user-dropdown" id="userDropdown">
+                            <button class="user-dropdown-item" id="exportBtn">📥 Export Data</button>
+                            <button class="user-dropdown-item" id="importBtn">📤 Import Data</button>
+                            <button class="user-dropdown-item signout" id="signOutBtn">🚪 Sign Out</button>
+                            <input type="file" id="importFile" accept=".json" style="display: none;">
+                        </div>
                     </div>
                 </div>
             </header>
@@ -2040,6 +2140,34 @@
 
     <button class="fab" id="fabBtn">+</button>
     <div id="toastContainer"></div>
+
+    <!-- VAULT MODAL -->
+    <div class="modal" id="vaultModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="vaultModalTitle">Personal Vault</h2>
+                <button class="modal-close" id="closeVaultModal">✕</button>
+            </div>
+            <div class="modal-body" id="vaultBody">
+                <!-- Password Entry View -->
+                <div id="vaultAuthView">
+                    <div class="form-group">
+                        <label class="form-label">Enter Vault Password</label>
+                        <input type="password" class="form-input" id="vaultPasswordInput" placeholder="Password...">
+                    </div>
+                    <button class="modal-btn modal-btn-primary" id="unlockVaultBtn" style="width: 100%;">Unlock Vault</button>
+                </div>
+                <!-- Data View -->
+                <div id="vaultDataView" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">Your Encrypted Personal Data</label>
+                        <div class="form-textarea" id="vaultContent" contenteditable="true" placeholder="Store your secrets here..." style="min-height: 400px; overflow-y: auto; border: 2px solid #e0e0e0; padding: 12px; border-radius: 8px; white-space: pre-wrap; font-family: monospace;"></div>
+                    </div>
+                    <button class="modal-btn modal-btn-primary" id="saveVaultBtn" style="width: 100%;">Encrypt & Save to Cloud</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- CONFIRMATION MODAL -->
     <div class="confirm-modal" id="confirmModal">
@@ -2908,12 +3036,38 @@
             
             const themeToggle = document.getElementById('themeToggle');
             if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
-            
+
             const exportBtn = document.getElementById('exportBtn');
             if (exportBtn) exportBtn.addEventListener('click', exportNotes);
-            
+
             const importBtn = document.getElementById('importBtn');
             if (importBtn) importBtn.addEventListener('click', importNotes);
+
+            const userMenuBtn = document.getElementById('userMenuBtn');
+            if (userMenuBtn) {
+                userMenuBtn.addEventListener('click', function() {
+                    document.getElementById('userDropdown').classList.toggle('active');
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                const userMenu = document.getElementById('userDropdown');
+                const userBtn = document.getElementById('userMenuBtn');
+                if (userMenu && userBtn && !userBtn.contains(e.target) && !userMenu.contains(e.target)) {
+                    userMenu.classList.remove('active');
+                }
+            });
+
+            const unlockVaultBtn = document.getElementById('unlockVaultBtn');
+            if (unlockVaultBtn) unlockVaultBtn.addEventListener('click', unlockVault);
+
+            const saveVaultBtn = document.getElementById('saveVaultBtn');
+            if (saveVaultBtn) saveVaultBtn.addEventListener('click', saveVault);
+
+            const closeVaultModal = document.getElementById('closeVaultModal');
+            if (closeVaultModal) closeVaultModal.addEventListener('click', () => {
+                document.getElementById('vaultModal').classList.remove('active');
+            });
 
             const noteContent = document.getElementById('noteContent');
             if (noteContent) {
@@ -3622,6 +3776,135 @@
                 console.log('App initialized successfully');
             } catch (error) {
                 console.error('Error initializing app:', error);
+            }
+        }
+
+        // Vault Logic
+        const VaultCrypto = {
+            async deriveKey(password, salt) {
+                const encoder = new TextEncoder();
+                const baseKey = await crypto.subtle.importKey(
+                    'raw',
+                    encoder.encode(password),
+                    'PBKDF2',
+                    false,
+                    ['deriveKey']
+                );
+                return crypto.subtle.deriveKey(
+                    {
+                        name: 'PBKDF2',
+                        salt: salt,
+                        iterations: 100000,
+                        hash: 'SHA-256'
+                    },
+                    baseKey,
+                    { name: 'AES-GCM', length: 256 },
+                    false,
+                    ['encrypt', 'decrypt']
+                );
+            },
+
+            async encrypt(text, password) {
+                const encoder = new TextEncoder();
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const key = await this.deriveKey(password, salt);
+
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    key,
+                    encoder.encode(text)
+                );
+
+                return {
+                    ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertext))),
+                    salt: btoa(String.fromCharCode(...salt)),
+                    iv: btoa(String.fromCharCode(...iv))
+                };
+            },
+
+            async decrypt(ciphertextB64, saltB64, ivB64, password) {
+                const salt = new Uint8Array(atob(saltB64).split('').map(c => c.charCodeAt(0)));
+                const iv = new Uint8Array(atob(ivB64).split('').map(c => c.charCodeAt(0)));
+                const ciphertext = new Uint8Array(atob(ciphertextB64).split('').map(c => c.charCodeAt(0)));
+
+                const key = await this.deriveKey(password, salt);
+
+                try {
+                    const decrypted = await crypto.subtle.decrypt(
+                        { name: 'AES-GCM', iv: iv },
+                        key,
+                        ciphertext
+                    );
+                    return new TextDecoder().decode(decrypted);
+                } catch (e) {
+                    throw new Error('Invalid password or corrupted data');
+                }
+            }
+        };
+
+        function openVault() {
+            document.getElementById('vaultModal').classList.add('active');
+            document.getElementById('vaultAuthView').style.display = 'block';
+            document.getElementById('vaultDataView').style.display = 'none';
+            document.getElementById('vaultPasswordInput').value = '';
+        }
+
+        async function unlockVault() {
+            const password = document.getElementById('vaultPasswordInput').value;
+            if (!password) return showToast('Please enter a password', 'warning');
+
+            const user = window.auth.currentUser;
+            if (!user) return showToast('Please sign in first', 'error');
+
+            try {
+                const vaultRef = window.firestore.doc(window.firestore.collection(window.db, 'users'), user.uid, 'vault', 'settings');
+                const vaultSnap = await window.firestore.getDoc(vaultRef);
+
+                if (vaultSnap.exists()) {
+                    const data = vaultSnap.data();
+                    if (data.ciphertext && data.salt && data.iv) {
+                        const decrypted = await VaultCrypto.decrypt(data.ciphertext, data.salt, data.iv, password);
+                        document.getElementById('vaultContent').innerText = decrypted;
+                    } else {
+                        showToast('Vault data is corrupted or incomplete', 'error');
+                        return;
+                    }
+                } else {
+                    // New Vault: Set up the content area and allow the user to create their first secret
+                    showToast('No vault found. You can now create a new one!', 'info');
+                    document.getElementById('vaultContent').innerText = '';
+                }
+
+                document.getElementById('vaultAuthView').style.display = 'none';
+                document.getElementById('vaultDataView').style.display = 'block';
+                showToast('Vault unlocked', 'success');
+            } catch (error) {
+                if (error.message === 'Invalid password or corrupted data') {
+                    showToast('Incorrect password', 'error');
+                } else {
+                    showToast('Error unlocking vault: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function saveVault() {
+            const password = document.getElementById('vaultPasswordInput').value;
+            const content = document.getElementById('vaultContent').innerText;
+            const user = window.auth.currentUser;
+
+            try {
+                const encrypted = await VaultCrypto.encrypt(content, password);
+                const vaultRef = window.firestore.doc(window.firestore.collection(window.db, 'users'), user.uid, 'vault', 'settings');
+
+                await window.firestore.setDoc(vaultRef, {
+                    ...encrypted,
+                    updatedAt: new Date()
+                });
+                showToast('Vault encrypted and saved', 'success');
+                document.getElementById('vaultModal').classList.remove('active');
+            } catch (error) {
+                showToast('Save failed: ' + error.message, 'error');
             }
         }
 
